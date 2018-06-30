@@ -58,7 +58,7 @@ std::string templatePattern;
 // so we can end infinite loops for things like video processing.
 bool program_active = true;
 
-#define TESTs
+#define TEST
 
 
 
@@ -142,13 +142,13 @@ int main(int argc, const char** argv)
 		std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
 		return 1;
 	}
-	country = (std::string)"ch";
-	templatePattern = "xx";
+	country = (std::string)"ch_w";
+	templatePattern = (std::string)"xx";
 #ifdef TEST
-	configFile = std::string("D:/third_party/openalpr-2.3.0/openalpr-2.3.0/build1/Release/runtime_data/config/ch.conf");
+	configFile = std::string("D:/project/D4/runtime_data/config/ch_w.conf");
 	//debug_mode = true;
 #endif
-	//filenames.push_back((std::string)"D:/third_party/openalpr-2.3.0/功能评测图像库/车牌种类变化子库/大型汽车前牌/川A83553.jpg");
+	//filenames.push_back((std::string)"F:/作业/车牌识别/Task3_车牌识别/功能评测图像库/省市简称变化子库/“辽”牌");
 
 
 	/****** read from fileDir ***********/
@@ -157,14 +157,14 @@ int main(int argc, const char** argv)
 
 	/****** read from xlsx ***********/
 #ifdef TEST
-	xlsxFile = "D:/third_party/openalpr-2.3.0/openalpr-2.3.0/src/dependence/test.xlsx";
+	xlsxFile = "D:/project/D4/test.xlsx";
 #endif
 	/////////////////////////////
 	//generate *.xlsx if not has. 
 	////////////////////////////
 #ifdef TEST
 	//std::string dirpath = "D:/third_party/openalpr-2.3.0/Task3_车牌识别";
-	dirpath = "D:/third_party/openalpr-2.3.0/Task3_车牌识别/功能评测图像库/省市简称变化子库/“京”牌";
+	dirpath = "D:/project/D4/Task3_车牌识别/性能评测图像库";
 #endif
 	GetAllgpxFilepathFromfolder(dirpath.c_str(), filenames);
 	auto iter = filenames.begin();
@@ -179,7 +179,7 @@ int main(int argc, const char** argv)
 	}
 	generateXlsxFlie(xlsxFile, filenames);
 	filenames.clear();
-	///////////////////////////
+	/////////////////////////
 
 	/////////////////////////////
 	//read files form *.xlsx  
@@ -522,13 +522,13 @@ void outputResult(const AlprResults& results) {
 	//assert(results.plates[0].topNPlates.size());
 
 	//Verified By Double
-	std::string no_newline = "";
+	std::string no_newline="";
 	int k = 0;
 	int pattern_match;
 	for (; k < results.plates[0].topNPlates.size(); k++)
 	{
-		pattern_match = results.plates[0].topNPlates[k].matches_template;
-		if (pattern_match)
+		pattern_match= results.plates[0].topNPlates[k].matches_template;
+		if ( pattern_match)
 		{
 			no_newline = results.plates[0].topNPlates[k].characters;
 			break;

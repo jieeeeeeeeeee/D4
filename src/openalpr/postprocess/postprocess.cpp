@@ -55,7 +55,7 @@ namespace alpr
 			//pattern = resulttemp;
 
 			RegexRule* rule = new RegexRule(region, pattern, config->postProcessRegexLetters, config->postProcessRegexNumbers);
-			//cout << "REGION: " << region << " PATTERN: " << pattern << endl;
+			cout << "REGION: " << region << " PATTERN: " << pattern << endl;
 			if (rules.find(region) == rules.end())
 			{
 				vector<RegexRule*> newRule;
@@ -132,6 +132,8 @@ namespace alpr
 		WideCharToMultiByte(CP_ACP, 0, tempchar, -1, pResult, nLen, NULL, NULL);
 		letter_ansi = pResult;
 
+		//cout << "×Ö·û£º"<<letter_ansi<<" Index:"<<charposition << endl;
+
 		bool chi_lp = false;
 		if (templateregion == "xx" || templateregion == "sg" || templateregion == "jc" || templateregion == "ag" || templateregion == "jx")
 			chi_lp = true;
@@ -177,11 +179,11 @@ namespace alpr
 				return;
 
 			insertLetter(letter, line_index, charposition, score);
-			if (score < skip_level)
+			/*if (score < skip_level)
 			{
 				float adjustedScore = abs(skip_level - score) + min_confidence;
 				insertLetter(SKIP_CHAR, line_index, charposition, adjustedScore);
-			}
+			}*/
 		}
 		if (score < min_confidence)
 			return;

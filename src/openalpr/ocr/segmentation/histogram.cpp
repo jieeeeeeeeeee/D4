@@ -123,11 +123,12 @@ namespace alpr
   {
     int maximum = -1;
     int highestX = leftX;
-	//q
-	if (leftX < 0)
+
+	if (leftX<0)
 	{
 		leftX = 0;
 	}
+
     for (int i = leftX; i <= rightX; i++)
     {
       if (colHeights[i] > maximum)

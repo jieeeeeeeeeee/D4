@@ -73,6 +73,12 @@ namespace alpr
 
       for (unsigned int j = 0; j < pipeline_data->charRegions[line_idx].size(); j++)
       {
+		  //Verified by Double
+		  if (j==0&&(pipeline_data->charRegions[line_idx][j].height/pipeline_data->charRegions[line_idx][j].width>3.0))
+		  {
+			  continue;
+		  }
+		  //Verified by Double
         Rect expandedRegion = expandRect( pipeline_data->charRegions[line_idx][j], 2, 2, pipeline_data->thresholds[i].cols, pipeline_data->thresholds[i].rows) ;
 
         tesseract.SetRectangle(expandedRegion.x, expandedRegion.y, expandedRegion.width, expandedRegion.height);
