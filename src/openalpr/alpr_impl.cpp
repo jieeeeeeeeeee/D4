@@ -237,7 +237,7 @@ namespace alpr
     timespec startTime;
     getTimeMonotonic(&startTime);
 
-
+	//AlprFullDetails = 所有红框+结果
     AlprFullDetails response;
 
     int64_t start_time = getEpochTimeMs();
@@ -285,8 +285,10 @@ namespace alpr
       // Reapply analysis for each multiple analysis value set in the config,
       // make a minor imperceptible tweak to the input image each time
       ResultAggregator iter_aggregator(MERGE_COMBINE, topN, config);
+	  //analysis_count OpenALPR can scan the same image multiple times with different randomization.
       for (unsigned int iteration = 0; iteration < config->analysis_count; iteration++)
       {
+		//应用感知变化 useless
         Mat iteration_image = iter_aggregator.applyImperceptibleChange(grayImg, iteration);
         //drawAndWait(iteration_image);
         AlprFullDetails iter_results = analyzeSingleCountry(img, iteration_image, warpedRegionsOfInterest);
@@ -379,15 +381,18 @@ namespace alpr
     AlprRecognizers country_recognizers = recognizers[config->country];
     timespec startTime;
     getTimeMonotonic(&startTime);
-
+	
+	//检测
     vector<PlateRegion> warpedPlateRegions;
     // Find all the candidate regions
     if (config->skipDetection == false)
-    {
+    { 
+      //LBP+SVM 检测
       warpedPlateRegions = country_recognizers.plateDetector->detect(grayImg, warpedRegionsOfInterest);
     }
     else
     {
+	  //跳跃检测
       // They have elected to skip plate detection.  Instead, return a list of plate regions
       // based on their regions of interest
       for (unsigned int i = 0; i < warpedRegionsOfInterest.size(); i++)
@@ -402,6 +407,7 @@ namespace alpr
     for (unsigned int i = 0; i < warpedPlateRegions.size(); i++)
       plateQueue.push(warpedPlateRegions[i]);
 
+	//识别
     int platecount = 0;
     while(!plateQueue.empty())
     {

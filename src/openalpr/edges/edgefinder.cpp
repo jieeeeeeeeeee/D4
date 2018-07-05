@@ -110,9 +110,15 @@ namespace alpr
     }
     else
     {
-
-      int expandX = (int) ((float) pipeline_data->crop_gray.cols) * 0.15f;
-      int expandY = (int) ((float) pipeline_data->crop_gray.rows) * 0.15f;
+		//q modify 
+		//增加扩展的半径，因为有些框边的字会被滤掉，需要适当的增大扩展比例
+		//int expandX = (int)((float)pipeline_data->crop_gray.cols) * 0.35f;
+		//int expandY = (int)((float)pipeline_data->crop_gray.rows) * 0.35f;
+		//int expandX = (int)((float)pipeline_data->crop_gray.cols) * 0.15f;
+		//int expandY = (int)((float)pipeline_data->crop_gray.rows) * 0.15f;
+		//q modify
+	  int expandX = (int)((float)pipeline_data->crop_gray.cols) * 0.15f;
+	  int expandY = (int)((float)pipeline_data->crop_gray.rows) * 0.15f;
       int w = pipeline_data->crop_gray.cols;
       int h = pipeline_data->crop_gray.rows;
 

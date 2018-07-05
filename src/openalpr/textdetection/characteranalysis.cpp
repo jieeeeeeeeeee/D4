@@ -45,7 +45,136 @@ namespace alpr
   {
 
   }
+  //q modify
+  //去除二值图像边缘的突出部
+  //uthreshold、vthreshold分别表示突出部的宽度阈值和高度阈值
+  //type代表突出部的颜色，0表示黑色，1代表白色 
+  void delete_jut(Mat& src, Mat& dst, int uthreshold, int vthreshold, int type)
+  {
+	  int threshold;
+	  src.copyTo(dst);
+	  int height = dst.rows;
+	  int width = dst.cols;
+	  int k;  //用于循环计数传递到外部
+	  for (int i = 0; i < height - 1; i++)
+	  {
+		  uchar* p = dst.ptr<uchar>(i);
+		  for (int j = 0; j < width - 1; j++)
+		  {
+			  if (type == 0)
+			  {
+				  //行消除
+				  if (p[j] == 255 && p[j + 1] == 0)
+				  {
+					  if (j + uthreshold >= width)
+					  {
+						  for (int k = j + 1; k < width; k++)
+							  p[k] = 255;
+					  }
+					  else
+					  {
+						  for (k = j + 2; k <= j + uthreshold; k++)
+						  {
+							  if (p[k] == 255) break;
+						  }
+						  if (p[k] == 255)
+						  {
+							  for (int h = j + 1; h < k; h++)
+								  p[h] = 255;
+						  }
+					  }
+				  }
+				  //列消除
+				  if (p[j] == 255 && p[j + width] == 0)
+				  {
+					  if (i + vthreshold >= height)
+					  {
+						  for (k = j + width; k < j + (height - i)*width; k += width)
+							  p[k] = 255;
+					  }
+					  else
+					  {
+						  for (k = j + 2 * width; k <= j + vthreshold*width; k += width)
+						  {
+							  if (p[k] == 255) break;
+						  }
+						  if (p[k] == 255)
+						  {
+							  for (int h = j + width; h < k; h += width)
+								  p[h] = 255;
+						  }
+					  }
+				  }
+			  }
+			  else  //type = 1
+			  {
+				  //行消除
+				  if (p[j] == 0 && p[j + 1] == 255)
+				  {
+					  if (j + uthreshold >= width)
+					  {
+						  for (int k = j + 1; k < width; k++)
+							  p[k] = 0;
+					  }
+					  else
+					  {
+						  for (k = j + 2; k <= j + uthreshold; k++)
+						  {
+							  if (p[k] == 0) break;
+						  }
+						  if (p[k] == 0)
+						  {
+							  for (int h = j + 1; h < k; h++)
+								  p[h] = 0;
+						  }
+					  }
+				  }
+				  //列消除
+				  if (p[j] == 0 && p[j + width] == 255)
+				  {
+					  if (i + vthreshold >= height)
+					  {
+						  for (k = j + width; k < j + (height - i)*width; k += width)
+							  p[k] = 0;
+					  }
+					  else
+					  {
+						  for (k = j + 2 * width; k <= j + vthreshold*width; k += width)
+						  {
+							  if (p[k] == 0) break;
+						  }
+						  if (p[k] == 0)
+						  {
+							  for (int h = j + width; h < k; h += width)
+								  p[h] = 0;
+						  }
+					  }
+				  }
+			  }
+		  }
+	  }
+  }
+  //图片边缘光滑处理
+  //size表示取均值的窗口大小，threshold表示对均值图像进行二值化的阈值
+  void imageblur(Mat& src, Mat& dst, Size size, int threshold)
+  {
+	  int height = src.rows;
+	  int width = src.cols;
+	  blur(src, dst, size);
+	  for (int i = 0; i < height; i++)
+	  {
+		  uchar* p = dst.ptr<uchar>(i);
+		  for (int j = 0; j < width; j++)
+		  {
+			  if (p[j] < threshold)
+				  p[j] = 0;
+			  else p[j] = 255;
+		  }
+	  }
+	  imshow("Blur", dst);
+  }
 
+  //q modify
   void CharacterAnalysis::analyze()
   {
     timespec startTime;
@@ -55,104 +184,248 @@ namespace alpr
       bitwise_not(pipeline_data->crop_gray, pipeline_data->crop_gray);
 
     pipeline_data->clearThresholds();
+	//生成3个二值化图像
     pipeline_data->thresholds = produceThresholds(pipeline_data->crop_gray, config);
 
-    timespec contoursStartTime;
-    getTimeMonotonic(&contoursStartTime);
+	//q modify
+	//为了得到字符是否需要invert，把之前的处理的结果作为一个预处理
+	{
+		timespec contoursStartTime;
+		getTimeMonotonic(&contoursStartTime);
 
-    pipeline_data->textLines.clear();
+		pipeline_data->textLines.clear();
 
-    for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
-    {
-      TextContours tc(pipeline_data->thresholds[i]);
+		for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+		{
+		  TextContours tc(pipeline_data->thresholds[i]);
 
-      allTextContours.push_back(tc);
-    }
+		  allTextContours.push_back(tc);
+		}
 
-    if (config->debugTiming)
-    {
-      timespec contoursEndTime;
-      getTimeMonotonic(&contoursEndTime);
-      cout << "  -- Character Analysis Find Contours Time: " << diffclock(contoursStartTime, contoursEndTime) << "ms." << endl;
-    }
-    //Mat img_equalized = equalizeBrightness(img_gray);
+		//Mat img_equalized = equalizeBrightness(img_gray);
 
-    timespec filterStartTime;
-    getTimeMonotonic(&filterStartTime);
+		timespec filterStartTime;
+		getTimeMonotonic(&filterStartTime);
 
-    for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
-    {
-      this->filter(pipeline_data->thresholds[i], allTextContours[i]);
+		for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+		{
+		  //滤波 
+		  //输入：二值化影像和所有轮廓
+		  //输出：好的字符轮廓
+		  this->filter(pipeline_data->thresholds[i], allTextContours[i]);
 
-      if (config->debugCharAnalysis)
-        cout << "Threshold " << i << " had " << allTextContours[i].getGoodIndicesCount() << " good indices." << endl;
-    }
+		  if (config->debugCharAnalysis)
+			cout << "Threshold " << i << " had " << allTextContours[i].getGoodIndicesCount() << " good indices." << endl;
+		}
 
-    if (config->debugTiming)
-    {
-      timespec filterEndTime;
-      getTimeMonotonic(&filterEndTime);
-      cout << "  -- Character Analysis Filter Time: " << diffclock(filterStartTime, filterEndTime) << "ms." << endl;
-    }
+		//获得好的字符轮廓的掩模
+		PlateMask plateMask(pipeline_data);
 
-    PlateMask plateMask(pipeline_data);
-    plateMask.findOuterBoxMask(allTextContours);
+		plateMask.findOuterBoxMask(allTextContours);
 
-    pipeline_data->hasPlateBorder = plateMask.hasPlateMask;
-    pipeline_data->plateBorderMask = plateMask.getMask();
+		pipeline_data->hasPlateBorder = plateMask.hasPlateMask;
+		pipeline_data->plateBorderMask = plateMask.getMask();
 
-    if (plateMask.hasPlateMask)
-    {
-      // Filter out bad contours now that we have an outer box mask...
-      for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
-      {
-        filterByOuterMask(allTextContours[i]);
-      }
-    }
 
-    int bestFitScore = -1;
-    int bestFitIndex = -1;
-    for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
-    {
+		if (plateMask.hasPlateMask)
+		{
+		  // Filter out bad contours now that we have an outer box mask...
+		  for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+		  {
+			//根据字符轮廓掩模，滤波获得好的优秀的字符
+			filterByOuterMask(allTextContours[i]);
 
-      int segmentCount = allTextContours[i].getGoodIndicesCount();
+		  }
+		}
 
-      if (segmentCount > bestFitScore)
-      {
-        bestFitScore = segmentCount;
-        bestFitIndex = i;
-        bestThreshold = pipeline_data->thresholds[i];
-        bestContours = allTextContours[i];
-      }
-    }
 
-    if (this->config->debugCharAnalysis)
-      cout << "Best fit score: " << bestFitScore << " Index: " << bestFitIndex << endl;
+		int bestFitScore = -1;
+		int bestFitIndex = -1;
+		for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+		{
 
-    if (bestFitScore <= 1)
-    {
-      pipeline_data->disqualified = true;
-      pipeline_data->disqualify_reason = "Low best fit score in characteranalysis";
-      return;
-    }
+		  int segmentCount = allTextContours[i].getGoodIndicesCount();
 
-    //getColorMask(img, allContours, allHierarchy, charSegments);
+		  if (segmentCount > bestFitScore)
+		  {
+			bestFitScore = segmentCount;
+			bestFitIndex = i;
+			//最好的二值化图像
+			bestThreshold = pipeline_data->thresholds[i];
+			//最好的字符轮廓
+			bestContours = allTextContours[i];
+		  }
+		}
+	}
 
-    if (this->config->debugCharAnalysis)
-    {
-      Mat img_contours = bestContours.drawDebugImage(bestThreshold);
+	//q modify
 
-      displayImage(config, "Matching Contours", img_contours);
-    }
+
+	//q modify
+	//注释掉此部分
+	//pipeline_data->plate_inverted = true，代表需要转换，字符需要变白，后面bsetbox是基于白色字体
+	//因为前面已经判断过一次是否字符需要变白了，且改变了二值化图，所以此处不需要再判断了，判断一次就够了，
+	//就够对裁剪后的新图是否进行二值化反操作了（bitwise_not）
+	//即保证了找边框和后面的找字符都使用白色字
+	//识别字体和底色的二值图，保证字体是二值图的白色
 
     if (config->auto_invert)
       pipeline_data->plate_inverted = isPlateInverted();
     else
       pipeline_data->plate_inverted = config->always_invert;
 
+	//q modify
     if (config->debugGeneral)
       cout << "Plate inverted: " << pipeline_data->plate_inverted << endl;
     
+	//q modify
+	allTextContours.clear();
+	//对字符轮廓做一次平滑
+	//this->filter(pipeline_data->thresholds[0], TextContours(pipeline_data->thresholds[0]));
+	//bestThreshold = pipeline_data->thresholds[0];
+	//if (config->auto_invert)
+	//	pipeline_data->plate_inverted = isPlateInverted();
+	//else
+	//	pipeline_data->plate_inverted = config->always_invert;
+	if (pipeline_data->plate_inverted)
+	{
+		for (int i = 0; i < pipeline_data->thresholds.size(); i++) {
+			bitwise_not(pipeline_data->thresholds[i], pipeline_data->thresholds[i]);
+		}
+	}
+	for (int i = 0; i < pipeline_data->thresholds.size(); i++)
+	{
+		Mat dst;
+		delete_jut(pipeline_data->thresholds[i], dst, 1, 1, pipeline_data->plate_inverted);
+		dst.copyTo(pipeline_data->thresholds[i]);
+		//blur(dst, dst, dst.size());
+	}
+
+
+	timespec contoursStartTime;
+	getTimeMonotonic(&contoursStartTime);
+
+	pipeline_data->textLines.clear();
+
+	for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+	{
+		TextContours tc(pipeline_data->thresholds[i]);
+
+		allTextContours.push_back(tc);
+	}
+
+	//q debug
+	Mat one = allTextContours[0].drawDebugImage(pipeline_data->thresholds[0]);
+	Mat two = allTextContours[1].drawDebugImage(pipeline_data->thresholds[1]);
+	Mat three = allTextContours[2].drawDebugImage(pipeline_data->thresholds[2]);
+	//q debug
+
+	if (config->debugTiming)
+	{
+		timespec contoursEndTime;
+		getTimeMonotonic(&contoursEndTime);
+		cout << "  -- Character Analysis Find Contours Time: " << diffclock(contoursStartTime, contoursEndTime) << "ms." << endl;
+	}
+	//Mat img_equalized = equalizeBrightness(img_gray);
+
+	timespec filterStartTime;
+	getTimeMonotonic(&filterStartTime);
+
+	for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+	{
+		//滤波 
+		//输入：二值化影像和所有轮廓
+		//输出：好的字符轮廓
+		this->filter(pipeline_data->thresholds[i], allTextContours[i]);
+
+		if (config->debugCharAnalysis)
+			cout << "Threshold " << i << " had " << allTextContours[i].getGoodIndicesCount() << " good indices." << endl;
+	}
+
+	//q debug
+	Mat one1 = allTextContours[0].drawDebugImage(pipeline_data->thresholds[0]);
+	Mat two1 = allTextContours[1].drawDebugImage(pipeline_data->thresholds[1]);
+	Mat three1 = allTextContours[2].drawDebugImage(pipeline_data->thresholds[2]);
+	//q debug
+
+	if (config->debugTiming)
+	{
+		timespec filterEndTime;
+		getTimeMonotonic(&filterEndTime);
+		cout << "  -- Character Analysis Filter Time: " << diffclock(filterStartTime, filterEndTime) << "ms." << endl;
+	}
+
+	//获得好的字符轮廓的掩模
+	PlateMask plateMask(pipeline_data);
+
+	plateMask.findOuterBoxMask(allTextContours);
+
+	pipeline_data->hasPlateBorder = plateMask.hasPlateMask;
+	pipeline_data->plateBorderMask = plateMask.getMask();
+
+
+	if (plateMask.hasPlateMask)
+	{
+		// Filter out bad contours now that we have an outer box mask...
+		for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+		{
+			//根据字符轮廓掩模，滤波获得好的优秀的字符
+
+			filterByOuterMask(allTextContours[i]);
+
+		}
+	}
+	//q debug
+	Mat one2 = allTextContours[0].drawDebugImage(pipeline_data->thresholds[0]);
+	Mat two2 = allTextContours[1].drawDebugImage(pipeline_data->thresholds[1]);
+	Mat three2 = allTextContours[2].drawDebugImage(pipeline_data->thresholds[2]);
+	//q debug
+
+
+	int bestFitScore = -1;
+	int bestFitIndex = -1;
+	for (unsigned int i = 0; i < pipeline_data->thresholds.size(); i++)
+	{
+
+		int segmentCount = allTextContours[i].getGoodIndicesCount();
+
+		if (segmentCount > bestFitScore)
+		{
+			bestFitScore = segmentCount;
+			bestFitIndex = i;
+			//最好的二值化图像
+			bestThreshold = pipeline_data->thresholds[i];
+			//最好的字符轮廓
+			bestContours = allTextContours[i];
+		}
+	}
+
+	if (this->config->debugCharAnalysis)
+		cout << "Best fit score: " << bestFitScore << " Index: " << bestFitIndex << endl;
+
+	if (bestFitScore <= 1)
+	{
+		pipeline_data->disqualified = true;
+		pipeline_data->disqualify_reason = "Low best fit score in characteranalysis";
+		return;
+	}
+
+	//getColorMask(img, allContours, allHierarchy, charSegments);
+
+	//显示滤波后的所有的字符轮廓，绿色为好的，蓝色为差的
+	if (this->config->debugCharAnalysis)
+	{
+		Mat img_contours = bestContours.drawDebugImage(bestThreshold);
+
+		displayImage(config, "Matching Contours", img_contours);
+	}
+
+
+
+
+
+	//q modify
+
     // Invert multiline plates and redo the thresholds before finding the second line
     if (config->multiline && config->auto_invert && pipeline_data->plate_inverted)
     {
@@ -162,8 +435,9 @@ namespace alpr
       
     
     LineFinder lf(pipeline_data);
+	//得到扩展后的线，如果是双行，有两条线
     vector<vector<Point> > linePolygons = lf.findLines(pipeline_data->crop_gray, bestContours);
-
+	//TextLine是字符线，即包含了 扩展线，优选字符线，优选字符矩形，字符平均高度，和线的角度的类
     vector<TextLine> tempTextLines;
     for (unsigned int i = 0; i < linePolygons.size(); i++)
     {
@@ -171,20 +445,21 @@ namespace alpr
 
       LineSegment topLine = LineSegment(linePolygon[0].x, linePolygon[0].y, linePolygon[1].x, linePolygon[1].y);
       LineSegment bottomLine = LineSegment(linePolygon[3].x, linePolygon[3].y, linePolygon[2].x, linePolygon[2].y);
-
+	  //得到优选字符的范围，框框
       vector<Point> textArea = getCharArea(topLine, bottomLine);
 
       TextLine textLine(textArea, linePolygon, pipeline_data->crop_gray.size());
 
       tempTextLines.push_back(textLine);
     }
-
+	//根据优选矩形再对bestThreshold进行滤波
     filterBetweenLines(bestThreshold, bestContours, tempTextLines);
 
     // Sort the lines from top to bottom.
     std::sort(tempTextLines.begin(), tempTextLines.end(), sort_text_line);
 
     // Now that we've filtered a few more contours, re-do the text area.
+	//得到再次滤波后的textLines
     for (unsigned int i = 0; i < tempTextLines.size(); i++)
     {
       vector<Point> updatedTextArea = getCharArea(tempTextLines[i].topLine, tempTextLines[i].bottomLine);
@@ -244,6 +519,41 @@ namespace alpr
       getTimeMonotonic(&endTime);
       cout << "Character Analysis Time: " << diffclock(startTime, endTime) << "ms." << endl;
     }
+
+	//q debug
+	if (pipeline_data->config->q_debug && !this->pipeline_data->config->debugCharAnalysis && pipeline_data->textLines.size() > 0)
+	{
+		vector<Mat> tempDash;
+		for (unsigned int z = 0; z < pipeline_data->thresholds.size(); z++)
+		{
+			Mat tmp(pipeline_data->thresholds[z].size(), pipeline_data->thresholds[z].type());
+			pipeline_data->thresholds[z].copyTo(tmp);
+			cvtColor(tmp, tmp, CV_GRAY2BGR);
+
+			tempDash.push_back(tmp);
+		}
+
+		Mat bestVal(this->bestThreshold.size(), this->bestThreshold.type());
+		this->bestThreshold.copyTo(bestVal);
+		cvtColor(bestVal, bestVal, CV_GRAY2BGR);
+
+		for (unsigned int z = 0; z < this->bestContours.size(); z++)
+		{
+			Scalar dcolor(255, 0, 0);
+			if (this->bestContours.goodIndices[z])
+				dcolor = Scalar(0, 255, 0);
+			drawContours(bestVal, this->bestContours.contours, z, dcolor, 1);
+		}
+		tempDash.push_back(bestVal);
+
+		std::string str = pipeline_data->config->fileName;
+		ostringstream oss;
+		oss << pipeline_data->config->q_debug;
+		std::string name = pipeline_data->config->outputPath + str + "-" + oss.str() + ".jpg";
+		imwrite(name, drawImageDashboard(tempDash, bestVal.type(), 3));
+		pipeline_data->config->q_debug++;
+	}
+	//q debug
 
     // Draw debug dashboard
     if (this->pipeline_data->config->debugCharAnalysis && pipeline_data->textLines.size() > 0)
@@ -385,6 +695,24 @@ namespace alpr
           textContours.goodIndices[i] = true;
       }
     }
+	//q modify
+	//优选框的字符应该在中心线附近，即其包围盒的y的中点坐标在高的0.3-0.7的范围内
+	std::vector<Rect> goodbox;
+	for (unsigned int i = 0; i < textContours.size(); i++)
+	{
+		if (textContours.goodIndices[i] == false)
+			continue;
+
+		Rect rect = boundingRect(textContours.contours[i]);
+		goodbox.push_back(rect);
+		float ymid = rect.y + 0.5*rect.width;
+		if (config->templateHeightPx*0.3 < ymid && ymid < config->templateHeightPx*0.7)
+			textContours.goodIndices[i] = true;
+		else
+			textContours.goodIndices[i] = false;
+	}
+	//q modify
+
 
   }
 

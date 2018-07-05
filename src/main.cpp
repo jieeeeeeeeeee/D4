@@ -142,13 +142,13 @@ int main(int argc, const char** argv)
 		std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl;
 		return 1;
 	}
-	country = (std::string)"ch_w";
+	country = (std::string)"ch";
 	templatePattern = (std::string)"xx";
 #ifdef TEST
-	configFile = std::string("D:/project/D4/runtime_data/config/ch_w.conf");
+	configFile = std::string("D:/project/D4/runtime_data/config/ch.conf");
 	//debug_mode = true;
 #endif
-	//filenames.push_back((std::string)"F:/作业/车牌识别/Task3_车牌识别/功能评测图像库/省市简称变化子库/“辽”牌");
+	//filenames.push_back((std::string)"D:/project/D4/Task3_车牌识别/功能评测图像库/省市简称变化子库/“藏”牌/藏A6D615.jpg");
 
 
 	/****** read from fileDir ***********/
@@ -164,7 +164,8 @@ int main(int argc, const char** argv)
 	////////////////////////////
 #ifdef TEST
 	//std::string dirpath = "D:/third_party/openalpr-2.3.0/Task3_车牌识别";
-	dirpath = "D:/project/D4/Task3_车牌识别/性能评测图像库";
+	//dirpath = "D:/project/D4/Task3_车牌识别/功能评测图像库/车牌种类变化子库/大型汽车后牌";
+	dirpath = "D:/project/D4/Task3_车牌识别/功能评测图像库/省市简称变化子库";
 #endif
 	GetAllgpxFilepathFromfolder(dirpath.c_str(), filenames);
 	auto iter = filenames.begin();
@@ -229,103 +230,20 @@ int main(int argc, const char** argv)
 
 			}
 		}
-		else if (filename == "webcam" || startsWith(filename, WEBCAM_PREFIX))
-		{
-			int webcamnumber = 0;
-
-			// If they supplied "/dev/video[number]" parse the "number" here
-			if (startsWith(filename, WEBCAM_PREFIX) && filename.length() > WEBCAM_PREFIX.length())
-			{
-				webcamnumber = atoi(filename.substr(WEBCAM_PREFIX.length()).c_str());
-			}
-
-			int framenum = 0;
-			cv::VideoCapture cap(webcamnumber);
-			if (!cap.isOpened())
-			{
-				std::cerr << "Error opening webcam" << std::endl;
-				return 1;
-			}
-
-			while (cap.read(frame))
-			{
-				if (framenum == 0)
-					motiondetector.ResetMotionDetection(&frame);
-				detectandshow(&alpr, frame, "", outputJson);
-				sleep_ms(10);
-				framenum++;
-			}
-		}
-		else if (startsWith(filename, "http://") || startsWith(filename, "https://"))
-		{
-			int framenum = 0;
-
-			VideoBuffer videoBuffer;
-
-			videoBuffer.connect(filename, 5);
-
-			cv::Mat latestFrame;
-
-			while (program_active)
-			{
-				std::vector<cv::Rect> regionsOfInterest;
-				int response = videoBuffer.getLatestFrame(&latestFrame, regionsOfInterest);
-
-				if (response != -1)
-				{
-					if (framenum == 0)
-						motiondetector.ResetMotionDetection(&latestFrame);
-					detectandshow(&alpr, latestFrame, "", outputJson);
-				}
-
-				// Sleep 10ms
-				sleep_ms(10);
-				framenum++;
-			}
-
-			videoBuffer.disconnect();
-
-			std::cout << "Video processing ended" << std::endl;
-		}
-		else if (hasEndingInsensitive(filename, ".avi") || hasEndingInsensitive(filename, ".mp4") ||
-			hasEndingInsensitive(filename, ".webm") ||
-			hasEndingInsensitive(filename, ".flv") || hasEndingInsensitive(filename, ".mjpg") ||
-			hasEndingInsensitive(filename, ".mjpeg") ||
-			hasEndingInsensitive(filename, ".mkv")
-			)
-		{
-			if (fileExists(filename.c_str()))
-			{
-				int framenum = 0;
-
-				cv::VideoCapture cap = cv::VideoCapture();
-				cap.open(filename);
-				cap.set(CV_CAP_PROP_POS_MSEC, seektoms);
-
-				while (cap.read(frame))
-				{
-					if (SAVE_LAST_VIDEO_STILL)
-					{
-						cv::imwrite(LAST_VIDEO_STILL_LOCATION, frame);
-					}
-					if (!outputJson)
-						std::cout << "Frame: " << framenum << std::endl;
-
-					if (framenum == 0)
-						motiondetector.ResetMotionDetection(&frame);
-					detectandshow(&alpr, frame, "", outputJson);
-					//create a 1ms delay
-					sleep_ms(1);
-					framenum++;
-				}
-			}
-			else
-			{
-				std::cerr << "Video file not found: " << filename << std::endl;
-			}
-		}
 		else if (is_supported_image(filename))
 		{
+			//q debug
+			size_t start = filename.rfind("/");
+			size_t end = filename.find(".");
+			std::string file = filename.substr(start+1, end - start-1);
+			Config* cin = alpr.getConfig();
+			size_t start1 = xlsxFile.rfind("/");
+			std::string xx(xlsxFile, 0, start1);
+			cin->outputPath = xx +"/output/";
+			//cin->outputPath = "D:/project/D4/output/";
+			cin->fileName = file;
+			cin->q_debug = 1;
+			//q debug
 			if (fileExists(filename.c_str()))
 			{
 				frame = cv::imread(filename);
@@ -392,15 +310,18 @@ bool detectandshow(Alpr* alpr, cv::Mat frame, std::string region, bool writeJson
 	getTimeMonotonic(&startTime);
 
 	std::vector<AlprRegionOfInterest> regionsOfInterest;
+	//先验的感兴趣区域
 	if (do_motiondetection)
 	{
 		cv::Rect rectan = motiondetector.MotionDetect(&frame);
 		if (rectan.width>0) regionsOfInterest.push_back(AlprRegionOfInterest(rectan.x, rectan.y, rectan.width, rectan.height));
 	}
 	else regionsOfInterest.push_back(AlprRegionOfInterest(0, 0, frame.cols, frame.rows));
+	//所有流程--提取+识别得到resulit
 	AlprResults results;
 	if (regionsOfInterest.size()>0) results = alpr->recognize(frame.data, frame.elemSize(), frame.cols, frame.rows, regionsOfInterest);
 
+	//输出result
 	timespec endTime;
 	getTimeMonotonic(&endTime);
 	double totalProcessingTime = diffclock(startTime, endTime);
@@ -420,7 +341,7 @@ bool detectandshow(Alpr* alpr, cv::Mat frame, std::string region, bool writeJson
 			outputResult(results);
 		}
 		else {
-			writeOneIndexToExcle(xlsxFile, index, "无", "无");
+			writeOneIndexToExcle(xlsxFile, index, "无", "无","无","无");
 			index++;
 		}
 
@@ -521,8 +442,15 @@ void outputResult(const AlprResults& results) {
 	//assert(results.plates.size());
 	//assert(results.plates[0].topNPlates.size());
 
+	std::string match_one = "错误";
+	std::string match_correct = "不存在正确结果";
+	std::string filename = filenames[index];
+	size_t start = filename.rfind("/");
+	size_t end = filename.find(".");
+	std::string file = filename.substr(start + 1, end - start - 1);
 	//Verified By Double
 	std::string no_newline="";
+	std::string tem = "";
 	int k = 0;
 	int pattern_match;
 	for (; k < results.plates[0].topNPlates.size(); k++)
@@ -530,8 +458,43 @@ void outputResult(const AlprResults& results) {
 		pattern_match= results.plates[0].topNPlates[k].matches_template;
 		if ( pattern_match)
 		{
-			no_newline = results.plates[0].topNPlates[k].characters;
-			break;
+			if (no_newline == "")
+			{
+				tem = results.plates[0].topNPlates[k].characters;
+				no_newline = tem;
+				std::replace(tem.begin(), tem.end(), '\n', '-');
+				wchar_t *tempchar;
+				char * resulttemp;
+
+				tempchar = Utf_8ToUnicode(tem.c_str());
+				resulttemp = UnicodeToAnsi(tempchar);
+				tem = resulttemp;
+				if (tem == file)
+				{
+					match_one = "正确";
+					match_correct = "存在正确结果";
+					break;
+				}
+				else
+				{
+					match_one = "错误";
+				}
+			}
+			else
+			{
+				tem = results.plates[0].topNPlates[k].characters;
+				std::replace(tem.begin(), tem.end(), '\n', '-');
+				wchar_t *tempchar;
+				char * resulttemp;
+				tempchar = Utf_8ToUnicode(tem.c_str());
+				resulttemp = UnicodeToAnsi(tempchar);
+				tem = resulttemp;
+				if (tem == file)
+				{
+					match_correct = "存在正确结果";
+					break;
+				}
+			}
 		}
 	}
 	//Verified By Double
@@ -548,6 +511,7 @@ void outputResult(const AlprResults& results) {
 	}
 	plate = no_newline;
 	color = results.plates[0].color;
-	writeOneIndexToExcle(xlsxFile, index, plate, color);
+	//writeOneIndexToExcle(xlsxFile, index, plate, color);
+	writeOneIndexToExcle(xlsxFile, index, plate, color,match_one,match_correct);
 	index++;
 }

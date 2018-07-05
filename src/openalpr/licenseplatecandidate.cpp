@@ -98,6 +98,16 @@ namespace alpr
       pipeline_data->color_deskewed.copyTo(pipeline_data->crop_gray);
     }
 
+	//q debug 
+	if (pipeline_data->config->q_debug) {
+		std::string str = pipeline_data->config->fileName;
+		ostringstream oss;
+		oss << pipeline_data->config->q_debug;
+		std::string name = pipeline_data->config->outputPath + str + "-" +oss.str()+".jpg";
+		imwrite(name, pipeline_data->color_deskewed);
+		pipeline_data->config->q_debug++;
+	}
+	//q debug 
 
     if (this->config->debugGeneral)
       displayImage(config, "quadrilateral", pipeline_data->color_deskewed);

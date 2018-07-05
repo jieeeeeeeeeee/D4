@@ -53,6 +53,8 @@ namespace alpr
     for (unsigned int i = 0; i < contours.size(); i++)
       goodIndices.push_back(true);
 
+
+
     this->width = threshold.cols;
     this->height = threshold.rows;
   }

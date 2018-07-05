@@ -268,3 +268,70 @@ void writeOneIndexToExcle(const std::string & fileName,int index, std::string pl
 		book->release();
 	}
 }
+
+
+void writeOneIndexToExcle(const std::string & fileName, int index, std::string plate, std::string color, std::string match_one, std::string match_correct)
+{
+	std::string path1 = fileName;
+	//	std::string path1 = "test.xlsx";
+	wstring  path2;
+	StringToWstring(path2, path1);
+	const wchar_t * path = path2.c_str();
+	Book * book = xlCreateXMLBook();
+	book->setKey(L"Halil Kural", L"windows-2723210a07c4e90162b26966a8jcdboe");
+	if (book)//是否创建实例成功
+	{
+		if (book->load(path))
+		{
+			Sheet * sheet = book->getSheet(0);
+			if (sheet)
+			{
+				wstring wstr1, wstr2,wstr3,wstr4;
+				StringToWstring(wstr1, plate);
+				sheet->writeStr(index + 1, 0, wstr1.c_str());
+				StringToWstring(wstr2, color);
+				sheet->writeStr(index + 1, 1, wstr2.c_str());
+				StringToWstring(wstr3, match_one);
+				sheet->writeStr(index + 1, 3, wstr3.c_str());
+				StringToWstring(wstr4, match_correct);
+				sheet->writeStr(index + 1, 4, wstr4.c_str());
+				//int rows = sheet->lastRow();
+				//int cols = sheet->lastCol();
+				//std::cout << rows << "  " << cols << std::endl;
+				//for (int i = 0; i < files.size(); i++) {
+
+				//	std::string str = files[i];
+				//	auto iter = str.begin();
+				//	while (iter != str.end())
+				//	{
+				//		if (*iter == '\\')
+				//		{
+				//			*iter = '/';
+				//		}
+				//		iter++;
+				//	}
+				//	wstring wstr1;
+				//	StringToWstring(wstr1, str);
+				//	sheet->writeStr(i + 1, 2, wstr1.c_str());
+				//}
+			}
+			if (book->save(path))
+			{
+				std::cout << "File example.xls has been modified." << std::endl;
+				//std::string path1;
+				//Wchar_tToString(path1, path);
+				//::ShellExecute(NULL, "open", path1.c_str(), NULL, NULL, SW_SHOW);
+			}
+			else
+			{
+				std::cout << book->errorMessage() << std::endl;
+			}
+		}
+		else
+		{
+			std::cout << "*.xlsx file path is wrong !" << std::endl;
+		}
+
+		book->release();
+	}
+}

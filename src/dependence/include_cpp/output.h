@@ -44,7 +44,7 @@ void writeResultToXlsx(const std::string & fileName, std::vector<std::string>& f
 void readFilePathFromXlsx(const std::string & fileName, std::vector<std::string>& files);
 void generateXlsxFlie(const std::string & xlsxFileName, std::vector<std::string>& filenames );
 void writeOneIndexToExcle(const std::string & fileName,int index, std::string plate, std::string color);
-
+void writeOneIndexToExcle(const std::string & fileName, int index, std::string plate, std::string color, std::string match_one, std::string match_correct);
 wchar_t * Utf_8ToUnicode(const char* szU8);
 char* UnicodeToAnsi(const wchar_t* szStr);
 

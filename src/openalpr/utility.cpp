@@ -114,6 +114,7 @@ namespace alpr
   {
     if (config->debugShowImages)
     {
+		namedWindow(windowName, 0);
       imshow(windowName, frame);
       cv::waitKey(5);
     }

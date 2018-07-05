@@ -58,7 +58,6 @@ namespace alpr
 
 		timespec startTime;
 		getTimeMonotonic(&startTime);
-
 		if (this->config->debugCharSegmenter)
 		{
 			displayImage(config, "CharacterSegmenter  Thresholds", drawImageDashboard(pipeline_data->thresholds, CV_8U, 3));
@@ -181,13 +180,32 @@ namespace alpr
 				getTimeMonotonic(&endTime);
 				cout << "  -- Character Segmentation Box cleaning/filtering Time: " << diffclock(startTime, endTime) << "ms." << endl;
 			}
-
+			//q debug
+			if (pipeline_data->config->q_debug) {
+				std::string str = pipeline_data->config->fileName;
+				ostringstream oss;
+				oss << pipeline_data->config->q_debug;
+				std::string name = pipeline_data->config->outputPath + str + "-" + oss.str() + ".jpg";
+				imwrite(name, drawImageDashboard(pipeline_data->thresholds, CV_8U, 3));
+				pipeline_data->config->q_debug++;
+			}
+			if (pipeline_data->config->q_debug) {
+				std::string str = pipeline_data->config->fileName;
+				ostringstream oss;
+				oss << pipeline_data->config->q_debug;
+				std::string name = pipeline_data->config->outputPath + str + "-" + oss.str() + ".jpg";
+				if(this->imgDbgGeneral.size())
+					imwrite(name, drawImageDashboard(this->imgDbgGeneral, this->imgDbgGeneral[0].type(), 2));
+				pipeline_data->config->q_debug++;
+			}
+			//q debug
 			if (this->config->debugCharSegmenter)
 			{
 				Mat imgDash = drawImageDashboard(pipeline_data->thresholds, CV_8U, 3);
 				displayImage(config, "Segmentation after cleaning", imgDash);
 
 				Mat generalDash = drawImageDashboard(this->imgDbgGeneral, this->imgDbgGeneral[0].type(), 2);
+
 				displayImage(config, "Segmentation General", generalDash);
 
 				Mat cleanImgDash = drawImageDashboard(this->imgDbgCleanStages, this->imgDbgCleanStages[0].type(), 3);
@@ -413,6 +431,23 @@ namespace alpr
 				bestBoxes = validBoxes;
 			}
 		}
+
+		//q debug
+		if (pipeline_data->config->q_debug&&!this->config->debugCharSegmenter)
+		{
+			cvtColor(histoImg, histoImg, CV_GRAY2BGR);
+			line(histoImg, Point(0, histoImg.rows - 1 - bestRowIndex), Point(histoImg.cols, histoImg.rows - 1 - bestRowIndex), Scalar(0, 255, 0));
+
+			Mat imgBestBoxes(img.size(), img.type());
+			img.copyTo(imgBestBoxes);
+			cvtColor(imgBestBoxes, imgBestBoxes, CV_GRAY2BGR);
+			for (unsigned int i = 0; i < bestBoxes.size(); i++)
+				rectangle(imgBestBoxes, bestBoxes[i], Scalar(0, 255, 0));
+
+			this->imgDbgGeneral.push_back(addLabel(histoImg, "All Histograms"));
+			this->imgDbgGeneral.push_back(addLabel(imgBestBoxes, "Best Boxes"));
+		}
+		//q debug
 
 		if (this->config->debugCharSegmenter)
 		{

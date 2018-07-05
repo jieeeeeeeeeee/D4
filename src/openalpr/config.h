@@ -152,6 +152,12 @@ namespace alpr
 
       bool setCountry(std::string country);
 
+	  //q debug
+	  std::string fileName;
+	  std::string outputPath;
+	  int q_debug = 0;
+	  //q debug
+
     private:
     
       float ocrImagePercent;

@@ -55,8 +55,9 @@ namespace alpr
 
       charPoints.push_back( CharPointInfo(contours.contours[i], i) );
     }
-
+	//得到两条线
     vector<Point> bestCharArea = getBestLine(contours, charPoints);
+	//将两条线扩展到整行
     vector<Point> bestLine = extendToEdges(Size(contours.width, contours.height), bestCharArea);
             
     if (bestLine.size() > 0)
