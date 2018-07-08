@@ -148,7 +148,7 @@ int main(int argc, const char** argv)
 	configFile = std::string("D:/project/D4/runtime_data/config/ch.conf");
 	//debug_mode = true;
 #endif
-	//filenames.push_back((std::string)"D:/project/D4/Task3_车牌识别/功能评测图像库/省市简称变化子库/“藏”牌/藏A6D615.jpg");
+	//filenames.push_back((std::string)"D:/project/D4/Task3_车牌识别/功能评测图像库/省市简称变化子库/“贵”牌/贵A3885T.jpg");
 
 
 	/****** read from fileDir ***********/
@@ -156,7 +156,7 @@ int main(int argc, const char** argv)
 	//GetAllgpxFilepathFromfolder(dirpath.c_str(), filenames);
 
 	/****** read from xlsx ***********/
-#ifdef TEST
+#ifdef TEST 
 	xlsxFile = "D:/project/D4/test.xlsx";
 #endif
 	/////////////////////////////

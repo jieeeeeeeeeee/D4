@@ -174,6 +174,59 @@ namespace alpr
 	  imshow("Blur", dst);
   }
 
+
+  //去除车牌上方的钮钉
+  //计算每行元素的阶跃数，如果小于X认为是柳丁，将此行全部填0（涂黑）
+  // X的推荐值为，可根据实际调整
+  bool clearLiuDing(Mat& img) {
+	  vector<float> fJump;
+	  int whiteCount = 0;
+	  const int x = 7;
+	  Mat jump = Mat::zeros(1, img.rows, CV_32F);
+	  for (int i = 0; i < img.rows; i++) {
+		  int jumpCount = 0;
+
+		  for (int j = 0; j < img.cols - 1; j++) {
+			  if (img.at<char>(i, j) != img.at<char>(i, j + 1)) jumpCount++;
+
+			  if (img.at<uchar>(i, j) == 255) {
+				  whiteCount++;
+			  }
+		  }
+
+		  jump.at<float>(i) = (float)jumpCount;
+	  }
+
+	  int iCount = 0;
+	  for (int i = 0; i < img.rows; i++) {
+		  fJump.push_back(jump.at<float>(i));
+		  if (jump.at<float>(i) >= 16 && jump.at<float>(i) <= 45) {
+			  //车牌字符满足一定跳变条件
+			  iCount++;
+		  }
+	  }
+
+	  ////这样的不是车牌
+	  if (iCount * 1.0 / img.rows <= 0.40) {
+		  //满足条件的跳变的行数也要在一定的阈值内
+		  return false;
+	  }
+	  //不满足车牌的条件
+	  if (whiteCount * 1.0 / (img.rows * img.cols) < 0.15 ||
+		  whiteCount * 1.0 / (img.rows * img.cols) > 0.50) {
+		  return false;
+	  }
+
+	  for (int i = 0; i < img.rows; i++) {
+		  if (jump.at<float>(i) <= x) {
+			  for (int j = 0; j < img.cols; j++) {
+				  img.at<char>(i, j) = 0;
+			  }
+		  }
+	  }
+	  return true;
+  }
+
   //q modify
   void CharacterAnalysis::analyze()
   {
@@ -298,6 +351,7 @@ namespace alpr
 		Mat dst;
 		delete_jut(pipeline_data->thresholds[i], dst, 1, 1, pipeline_data->plate_inverted);
 		dst.copyTo(pipeline_data->thresholds[i]);
+		clearLiuDing(pipeline_data->thresholds[i]);
 		//blur(dst, dst, dst.size());
 	}
 
@@ -711,6 +765,242 @@ namespace alpr
 		else
 			textContours.goodIndices[i] = false;
 	}
+
+	//外接矩形不能重合
+	//clearGoodBox();
+	//std::vector<Rect> okbox;
+	//std::vector<Rect> badbox;
+	//for (int i = 0; i < goodbox.size(); i++) {
+	//	Rect rect = goodbox[i];
+	//	bool good = true;
+	//	for (int j = 0; j < goodbox.size(); j++) {
+	//		if (j = i)
+	//			continue;
+	//		Rect rectAnother = goodbox[j];
+	//		cv::Point p1(rectAnother.x, rectAnother.y);
+	//		cv::Point p2(rectAnother.x + rectAnother.width, rectAnother.y + rectAnother.height);
+	//		cv::Point p3(rectAnother.x, rectAnother.y + rectAnother.height);
+	//		cv::Point p4(rectAnother.x + rectAnother.width, rectAnother.y);
+	//		if (rect.contains(p1) && rect.contains(p2)&& rect.contains(p3) && rect.contains(p4)) {
+	//			good = false;
+	//		}
+	//	}
+	//	if (good) {
+	//		okbox.push_back(rect);
+	//	}
+	//}
+
+
+	//if(okbox.size())
+
+
+
+
+
+
+	//算法2，滑动窗口法
+	//1.求平均的优选字符的大小，并构造一个候选窗口A
+	//2.从最左边的最优字符开始，让A沿，最优字符们的中线滑动
+	//3.计算框到的轮廓的最小外界矩形B，如果B的大小类似于A，则认为是框到了汉字。设为优选字符。
+	int a = textContours.getGoodIndicesCount();
+	if (a < 3)
+		return;
+	float aver_width = 0;
+	float aver_heigh = 0;
+	float aver_y = 0;
+	int minleftX = 99999;
+	int maxleftX = 0;
+	for (int i = 0; i < goodbox.size(); i++) {
+		aver_heigh += goodbox[i].height;
+		aver_width += goodbox[i].width;
+		aver_y     += goodbox[i].y;
+		minleftX    = min(minleftX, goodbox[i].x);
+		maxleftX    = min(minleftX, goodbox[i].x);
+
+	}
+
+	aver_heigh /= goodbox.size();
+	aver_width /= goodbox.size();
+	aver_y     /= goodbox.size();
+
+	float extern_w = aver_width*1.2;
+	float extern_h = aver_heigh*1.2;
+
+	vector<int> selectIdx;
+	for (unsigned int i = 0; i < textContours.size(); i++)
+	{
+		if (textContours.goodIndices[i] == false)
+		{
+			Rect rect = boundingRect(textContours.contours[i]);
+			if (rect.width < extern_w&&rect.height < extern_h &&rect.x + rect.width<minleftX)
+			{
+				//if(textContours.hierarchy[i][2] == -1)
+				selectIdx.push_back(i);
+			}
+		}
+	}
+
+	int endX = minleftX - ceil(aver_width);
+	if (endX < 0)
+		return;
+	//融合左边字符
+	for (int i = 0; i < endX; i++) {
+		//int moveWindow_x = i;
+		int moveWindow_y = floor(aver_y + 0.5*aver_heigh-0.5*extern_h);
+		Rect moveWindow(i, moveWindow_y, floor(extern_w), floor(extern_h));
+		vector<cv::Point> Chinesecontours;
+		for (int j = 0; j < selectIdx.size(); j++) {
+			Rect rect = boundingRect(textContours.contours[selectIdx[j]]);
+			cv::Point p1(rect.x, rect.y);
+			cv::Point p2(rect.x + rect.width, rect.y + rect.height);
+			if (moveWindow.contains(p1) && moveWindow.contains(p2))
+			{
+				Chinesecontours.insert(Chinesecontours.end(), textContours.contours[selectIdx[j]].begin(), textContours.contours[selectIdx[j]].end());
+				//Rect rect = boundingRect(textContours.contours[selectIdx[j]]);
+			}
+		}
+		Rect ChineseRect = boundingRect(Chinesecontours);
+		if (ChineseRect.height >= minHeightPx && ChineseRect.height <= maxHeightPx && ChineseRect.width > ChineseRect.height * 0.2)
+		{
+			float charAspect = (float)ChineseRect.width / (float)ChineseRect.height;
+
+			//cout << "  -- stage 2 aspect: " << abs(charAspect) << " - " << aspecttolerance << endl;
+			if (abs(charAspect - idealAspect) < aspecttolerance) {
+				textContours.contours.push_back(Chinesecontours);
+				textContours.goodIndices.push_back(true);
+				textContours.hierarchy.push_back(cv::Vec4i(-1, -1, -1, -1));
+				return;
+			}
+
+		}
+
+	}
+
+
+	//融合右边字符
+	//selectIdx.clear();
+	//for (unsigned int i = 0; i < textContours.size(); i++)
+	//{
+	//	if (textContours.goodIndices[i] == false)
+	//	{
+	//		Rect rect = boundingRect(textContours.contours[i]);
+	//		if (rect.width < extern_w&&rect.height < extern_h &&rect.x>maxleftX)
+	//		{
+	//			//if(textContours.hierarchy[i][2] == -1)
+	//			selectIdx.push_back(i);
+	//		}
+	//	}
+	//}
+
+	//{
+	//	int moveWindow_x = config->templateWidthPx - floor(extern_w);
+	//	int moveWindow_y = floor(aver_y + 0.5*aver_heigh - 0.5*extern_h);
+	//	Rect moveWindow(moveWindow_x, moveWindow_y, floor(extern_w), floor(extern_h));
+	//	vector<cv::Point> Chinesecontours;
+	//	for (int j = 0; j < selectIdx.size(); j++) {
+	//		Rect rect = boundingRect(textContours.contours[selectIdx[j]]);
+	//		cv::Point p1(rect.x, rect.y);
+	//		cv::Point p2(rect.x + rect.width, rect.y + rect.height);
+	//		if (moveWindow.contains(p1) && moveWindow.contains(p2))
+	//		{
+	//			Chinesecontours.insert(Chinesecontours.end(), textContours.contours[selectIdx[j]].begin(), textContours.contours[selectIdx[j]].end());
+	//			//Rect rect = boundingRect(textContours.contours[selectIdx[j]]);
+	//		}
+	//	}
+	//	Rect ChineseRect = boundingRect(Chinesecontours);
+	//	if (ChineseRect.height >= minHeightPx && ChineseRect.height <= maxHeightPx && ChineseRect.width > ChineseRect.height * 0.2)
+	//	{
+	//		float charAspect = (float)ChineseRect.width / (float)ChineseRect.height;
+
+	//		//cout << "  -- stage 2 aspect: " << abs(charAspect) << " - " << aspecttolerance << endl;
+	//		if (abs(charAspect - idealAspect) < aspecttolerance) {
+	//			textContours.contours.push_back(Chinesecontours);
+	//			textContours.goodIndices.push_back(true);
+	//			textContours.hierarchy.push_back(cv::Vec4i(-1, -1, -1, -1));
+	//			return;
+	//		}
+
+	//	}
+	//}
+
+
+	//计算优选框的平均大小   找底座法，有点容易受杂质干扰
+	//找个底座，然后画个平均方形，如果外接矩形在在方形内，就加入其中，然后再计算外界矩形，计算到一个就break了，效果不好
+	//由正确的由30降到了24
+	//int a = textContours.getGoodIndicesCount();
+	//float aver_width = 0;
+	//float aver_heigh = 0;
+	//for (int i = 0; i < goodbox.size(); i++) {
+	//	aver_heigh += goodbox[i].height;
+	//	aver_width += goodbox[i].width;
+
+
+	//}
+	//aver_heigh /= goodbox.size();
+	//aver_width /= goodbox.size();
+	//float extern_w = aver_width*1.2;
+	//float extern_h = aver_heigh*1.2;
+	//vector<int> selectIdx;
+	//for (unsigned int i = 0; i < textContours.size(); i++)
+	//{
+	//	if (textContours.goodIndices[i] == false)
+	//	{
+	//		Rect rect = boundingRect(textContours.contours[i]);
+	//		if (rect.width < extern_w&&rect.height < extern_h &&rect.x+rect.width<0.25*config->templateWidthPx)
+	//		{
+	//			//if(textContours.hierarchy[i][2] == -1)
+	//			selectIdx.push_back(i);
+	//		}
+	//	}
+	//}
+	//vector<cv::Point> Chinesecontours;
+	//bool ismerge = false;
+	//for (int i = 0; i < selectIdx.size(); i++) {
+	//	Rect rect = boundingRect(textContours.contours[selectIdx[i]]);
+	//	Rect newRect;
+	//	newRect.width = extern_w;
+	//	newRect.height = extern_h;
+	//	newRect.x = rect.x - 0.5*(newRect.width - rect.width);
+	//	newRect.y = rect.y - (newRect.height - rect.height);
+	//	Chinesecontours = textContours.contours[selectIdx[i]];
+	//	for (int j = 0; j < selectIdx.size(); j++)
+	//	{
+	//		if (j == i)
+	//			continue;
+	//		Rect rect = boundingRect(textContours.contours[selectIdx[j]]);
+	//		cv::Point p1(rect.x, rect.y);
+	//		cv::Point p2(rect.x+rect.width, rect.y+rect.height);
+	//		if (newRect.contains(p1) && newRect.contains(p2))
+	//		{
+	//			Chinesecontours.insert(Chinesecontours.end(), textContours.contours[selectIdx[j]].begin(), textContours.contours[selectIdx[j]].end());
+	//			ismerge = true;
+	//		}
+	//	}
+	//	if (ismerge)
+	//	{
+	//		textContours.contours.push_back(Chinesecontours);
+	//		textContours.goodIndices.push_back(true);
+	//		textContours.hierarchy.push_back(cv::Vec4i(-1, -1, -1, -1));
+	//		break;
+	//	}
+	//	
+
+	//}
+
+	//for (unsigned int i = 0; i < textContours.size(); i++)
+	//{
+	//	if (textContours.goodIndices[i] == false)
+	//		continue;
+
+	//	Rect rect = boundingRect(textContours.contours[i]);
+	//	//goodbox.push_back(rect);
+	//	float ymid = rect.y + 0.5*rect.width;
+	//	if (config->templateHeightPx*0.3 < ymid && ymid < config->templateHeightPx*0.7)
+	//		textContours.goodIndices[i] = true;
+	//	else
+	//		textContours.goodIndices[i] = false;
+	//}
+
 	//q modify
 
 

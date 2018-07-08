@@ -332,8 +332,8 @@ namespace alpr
     debugCharSegmenter = value;
     debugCharAnalysis = value;
     debugColorFiler = value;
-    debugOcr = value;
-    debugPostProcess = value;
+    debugOcr = 0;
+    debugPostProcess = 0;
     debugPauseOnFrame = value;
     debugShowImages = value;
   }
